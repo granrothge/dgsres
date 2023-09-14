@@ -11,6 +11,8 @@ class slice(object):
         self.grid = grid()
         self.res_2d_grid = grid()
         self.fitting = fitting()
+        self.expdata = expdata()
+        self.convolution = convolution()
 
 
 class grid(object):
@@ -24,6 +26,23 @@ class fitting(object):
         self.rounds = 3
         self.gaussian2d_threshold = 0.5
         self. alpha_bounds = (-np.pi/2, np.pi/2)
+
+
+class expdata():
+    def __init__(self):
+        self.grid = grid()
+        self.perp_hkl_directions = None
+        self.dh = None
+        self.sl = None
+        self.perp_hkl_range = None
+        self.Nsample_perp_hkl = 20
+
+
+class convolution():
+    def __init__(self):
+        self.expansion_ratio = 0.1
+        self.N_subpixels = 5, 5
+
 
 
 def sample_from_MDH(fl_name, yml_file=None):

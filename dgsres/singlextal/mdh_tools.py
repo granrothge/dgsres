@@ -44,7 +44,6 @@ class convolution():
         self.N_subpixels = 5, 5
 
 
-
 def sample_from_MDH(fl_name, yml_file=None):
     """ get the sample info from the MDH file
         fl_name is the name of the MDH file
@@ -85,34 +84,60 @@ def angles_from_MDH(fl_name):
     return sx.axis(min=angles[0], max=angles[-1], step=dangles[0])
 
 
-def slice_from_MDH(fl_name, slice_name):
+def det_E_dir(fdh):
+    """
+       for a file object from an MDH file dermine which of the data
+       items is the energy axis
+    """
+    E_ky = None
+    try:
+        dkeysstr = fdh['MDHistoWorkspace/data/signal'].attrs['axes'].decode('utf')
+    except AttributeError:
+        dkeysstr = fdh['MDHistoWorkspace/data/signal'].attrs['axes']
+    dkeys = dkeysstr.split(':')
+    for ky in dkeys:
+        lngnm = fdh['MDHistoWorkspace/data'][ky].attrs['long_name']
+        if 'DeltaE' in lngnm.decode('utf-8'):
+            E_ky = ky
+    return dkeys, E_ky
+
+
+def slice_from_MDH(fl_name, slice_name, load_signal=False):
     """ get the slice info from an MDH"""
     sl = slice(slice_name)
     with h5py.File(fl_name, 'r') as fh:
         projection = fh['MDHistoWorkspace/experiment0/logs/W_MATRIX/value'][:]
         projection = projection.reshape((3, 3))  # need to check that this reshapes the matrix correctly.
         data_shp = np.array(fh['MDHistoWorkspace/data/signal'].shape)[::-1]  # the shape of the data the first dimension is the last item in the tuple thus why reversing the array
+        # data_shp = np.array(fh['MDHistoWorkspace/data/signal'].shape)
         singledims = data_shp == 1
+        Dky_lst, E_axis = det_E_dir(fh)
+        E_axis_idx = Dky_lst.index(E_axis)
+        dim_idx_list = [0, 1, 2, 3]
+        all_Qdims = dim_idx_list.remove(E_axis_idx)
         if singledims.sum() < 2:
             raise RuntimeError('Must be a slice or a cut not a volume')
-        Qdims = np.where(np.invert(singledims[:3]))[0]  # An array of booleans for which Q dimensions vary
-        Q_perp_dims = np.where(singledims[:3])[0]  # An array of booleans for which Q dimensions are fixed.
 
-        if singledims[-1]:
+        Qdims = np.where(np.invert(singledims[all_Qdims]))[0]  # An array of booleans for which Q dimensions vary
+        Q_perp_dims = np.where(singledims[all_Qdims])[0]  # An array of booleans for which Q dimensions are fixed.
+
+        if singledims[E_axis_idx]:
             # check if constant E cut # not completed yet.
             qs = {}
-            for idx in range(Qdims):
-                qs[idx] = fh['MDHistoWorkspace/data/D{}'.format(Qdims[idx])]
+            for Qdim in all_Qdims:
+                qs[Qdim] = fh['MDHistoWorkspace/data/D{}'.format(Qdim)]
 
         else:  # it is a constant Q cut
             hkl0 = np.zeros(3)
             for dimnum in range(len(Q_perp_dims)):
-                qtmp = fh['MDHistoWorkspace/data/D{}'.format(Q_perp_dims[dimnum])][:].mean()
-                hkl0 += projection[Q_perp_dims[dimnum], :]*qtmp
+                qdim = Q_perp_dims[dimnum]
+                qtmp = fh['MDHistoWorkspace/data/D{}'.format(qdim)][:].mean()
+                hkl0 += projection[qdim, :]*qtmp
             hkl_projection = projection[Qdims[0]]
-            Etmp = fh['MDHistoWorkspace/data/D3'][:]
+            Etmp = fh['MDHistoWorkspace/data/{}'.format(E_axis)][:]
             Evals = (Etmp[1:]+Etmp[:-1])/2
-            Eaxis = sx.axis(min=Evals.min(), max=Evals.max(), step=Evals[1]-Evals[0])
+            Eaxis = sx.axis(min=Evals.min(), max=Evals.max(),
+                            step=Evals[1]-Evals[0])
             qtmp = fh['MDHistoWorkspace/data/D{}'.format(Qdims[0])]
             qvals = (qtmp[1:]+qtmp[:-1])/2
             qaxis = sx.axis(min=qvals.min(), max=qvals.max(),
@@ -121,7 +146,9 @@ def slice_from_MDH(fl_name, slice_name):
             sl.hkl_projection = hkl_projection
             sl.grid.qaxis = qaxis
             sl.grid.Eaxis = Eaxis
-            return sl
+        if load_signal:
+            sl.expdata.sl = np.array(fh['MDHistoWorkspace/data/signal'])
+    return sl
 
 
 def gen_lattice_vectors(a, b, c, alpha, beta, gamma):

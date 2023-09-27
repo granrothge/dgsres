@@ -6,6 +6,7 @@ import dgsres.singlextal.mdh_tools as mdht
 import numpy as np
 import os
 import yaml
+import h5py
 here = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(here, '..', '..'))
 
@@ -77,8 +78,16 @@ class tests(unittest.TestCase):
         self.assertTrue(np.abs(ang.max-20.0) < 1e-6)
         self.assertTrue(np.abs(ang.step-2.0) < 1e-6)
 
+    def test_det_E_dir(self):
+        MDH_path = os.path.join(project_root, 'tests', 'data', 'SEQUOIA_data',
+                                'slice_0p5K0E_28meV_4K.nxs')
+        with h5py.File(MDH_path, 'r') as fh:
+            Dky_lst, E_axis = mdht.det_E_dir(fh)
+            print(Dky_lst, E_axis)
+        self.assertTrue(E_axis == 'D3')
+        self.assertTrue(Dky_lst == ['D3', 'D2', 'D1', 'D0'])
+
     def test_slice_from_MDH(self):
-       
 
         MDH_path = os.path.join(project_root, 'tests', 'data', 'SEQUOIA_data',
                                 'slice_0p5K0E_28meV_4K.nxs')

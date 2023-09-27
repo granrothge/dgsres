@@ -102,5 +102,16 @@ class tests(unittest.TestCase):
         self.assertTrue(abs(sl.grid.Eaxis.max-26.925) < 5e-6)
         self.assertTrue(abs(sl.grid.Eaxis.step-.15) < 1e-6)
 
+    def test_slice_from_MDH_signal(self):
+
+        MDH_path = os.path.join(project_root, 'tests', 'data', 'SEQUOIA_data',
+                                'slice_0p5K0E_28meV_4K.nxs')
+        sl = mdht.slice_from_MDH(MDH_path, 'test', load_signal=True)
+        # print("sl shape ={}".format(sl.expdata.sl.shape))
+        self.assertTrue(sl.expdata.sl.shape == (200, 1, 160, 1))
+        self.assertTrue(abs(np.nansum(sl.expdata.sl)-6.674297057) < 1e-6)
+        print("sl sum = {}".format(np.sum(np.squeeze(sl.expdata.sl))))
+        # np.squeeze(sl.expdata.sl)
+
 
 if __name__ == '__main__': unittest.main()

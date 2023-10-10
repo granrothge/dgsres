@@ -3,6 +3,7 @@ import numpy as np
 import yaml
 from mcvine.workflow import singlextal as sx
 import warnings
+import copy
 
 
 class slice(object):
@@ -97,7 +98,12 @@ def det_E_dir(fdh):
     dkeys = dkeysstr.split(':')
     for ky in dkeys:
         lngnm = fdh['MDHistoWorkspace/data'][ky].attrs['long_name']
-        if 'DeltaE' in lngnm.decode('utf-8'):
+        # decode from binary string  if it is one
+        try:
+            lngnm = lngnm.decode('utf-8')
+        except AttributeError:
+            pass
+        if 'DeltaE' in lngnm:
             E_ky = ky
     return dkeys, E_ky
 
@@ -108,13 +114,16 @@ def slice_from_MDH(fl_name, slice_name, load_signal=False):
     with h5py.File(fl_name, 'r') as fh:
         projection = fh['MDHistoWorkspace/experiment0/logs/W_MATRIX/value'][:]
         projection = projection.reshape((3, 3))  # need to check that this reshapes the matrix correctly.
-        data_shp = np.array(fh['MDHistoWorkspace/data/signal'].shape)[::-1]  # the shape of the data the first dimension is the last item in the tuple thus why reversing the array
-        # data_shp = np.array(fh['MDHistoWorkspace/data/signal'].shape)
+        # data_shp = np.array(fh['MDHistoWorkspace/data/signal'].shape)[::-1]  # the shape of the data the first dimension is the last item in the tuple thus why reversing the array
+        data_shp = np.array(fh['MDHistoWorkspace/data/signal'].shape)
         singledims = data_shp == 1
         Dky_lst, E_axis = det_E_dir(fh)
         E_axis_idx = Dky_lst.index(E_axis)
         dim_idx_list = [0, 1, 2, 3]
-        all_Qdims = dim_idx_list.remove(E_axis_idx)
+        all_Qdims = copy.deepcopy(dim_idx_list)
+        all_Qdims.remove(E_axis_idx)
+        print("Eaxis_idx ={}, All_Qdims={}, data_shp = {}".format(E_axis_idx, all_Qdims,data_shp))
+
         if singledims.sum() < 2:
             raise RuntimeError('Must be a slice or a cut not a volume')
 
